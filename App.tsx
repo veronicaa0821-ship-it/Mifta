@@ -4,6 +4,7 @@ import Header from './components/Header';
 import ProductCard from './components/ProductCard';
 import Footer from './components/Footer';
 import SearchBar from './components/SearchBar';
+import Hero from './components/Hero';
 import ProductDetail from './components/ProductDetail';
 import CheckoutPage from './components/CheckoutPage';
 import AuthModal from './components/AuthModal';
@@ -116,11 +117,14 @@ const App: React.FC = () => {
         }}
       />
       
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-20">
-        <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-4xl font-serif font-bold text-maroon-900 tracking-tight sm:text-5xl">{categoryTitle}</h2>
-            {selectedCategory === 'All' && <p className="mt-4 max-w-2xl mx-auto text-lg text-maroon-600">Handpicked for unparalleled quality and elegance.</p>}
-        </div>
+      {selectedCategory === 'All' && <Hero />}
+
+      <main className={`flex-grow container mx-auto px-4 sm:px-6 lg:px-8 pb-16 sm:pb-20 ${selectedCategory === 'All' ? 'pt-16' : 'pt-8'}`}>
+        {selectedCategory !== 'All' && (
+            <div className="text-center mb-12 sm:mb-16">
+                <h2 className="text-4xl font-serif font-bold text-maroon-900 tracking-tight sm:text-5xl">{categoryTitle}</h2>
+            </div>
+        )}
 
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
