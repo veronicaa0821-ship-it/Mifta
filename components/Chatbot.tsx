@@ -49,7 +49,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ products }) => {
 
     useEffect(() => {
         if (isOpen && !chatRef.current) {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const ai = new GoogleGenAI({ apiKey: AIzaSyApq-sbVCM8S3NKusTQ90L2ycLA_0O8JLw });
             chatRef.current = ai.chats.create({
                 model: 'gemini-3-flash-preview',
                 config: {
