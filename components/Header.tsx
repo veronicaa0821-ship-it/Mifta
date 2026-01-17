@@ -4,7 +4,7 @@ import CategoryMenu from './CategoryMenu';
 import { Logo } from './Logo';
 import CartDropdown from './CartDropdown';
 import AccountDropdown from './AccountDropdown';
-import { PRODUCTS } from '../constants';
+import type { User, CartItem } from '../types';
 
 const SearchIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -37,17 +37,33 @@ const CategoryIcon = () => (
   </svg>
 );
 
-
 interface HeaderProps {
+  user: User | null;
+  cartItems: CartItem[];
   onSelectCategory: (category: string) => void;
   selectedCategory: string;
   onSearchClick: () => void;
   onGoToCheckout: () => void;
   onOpenRegister: () => void;
   onOpenSignIn: () => void;
+  onSignOut: () => void;
+  onUpdateCartQuantity: (cartItemId: string, newQuantity: number) => void;
+  onRemoveFromCart: (cartItemId: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onSelectCategory, selectedCategory, onSearchClick, onGoToCheckout, onOpenRegister, onOpenSignIn }) => {
+const Header: React.FC<HeaderProps> = ({
+  user,
+  cartItems,
+  onSelectCategory,
+  selectedCategory,
+  onSearchClick,
+  onGoToCheckout,
+  onOpenRegister,
+  onOpenSignIn,
+  onSignOut,
+  onUpdateCartQuantity,
+  onRemoveFromCart,
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -56,16 +72,8 @@ const Header: React.FC<HeaderProps> = ({ onSelectCategory, selectedCategory, onS
     onSelectCategory(category);
     setIsMenuOpen(false);
   };
-
-  // Dummy cart for demonstration
-  const p1 = PRODUCTS.find(p => p.id === 13);
-  const p2 = PRODUCTS.find(p => p.id === 2);
-  const dummyCart = [];
-  if (p1) dummyCart.push({ product: p1, quantity: 1, size: '440ml' });
-  if (p2) dummyCart.push({ product: p2, quantity: 2 });
   
-  const totalItems = dummyCart.reduce((sum, item) => sum + item.quantity, 0);
-
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <>
@@ -95,14 +103,28 @@ const Header: React.FC<HeaderProps> = ({ onSelectCategory, selectedCategory, onS
                   <span className="sr-only">Cart</span>
                   <CartIcon itemCount={totalItems}/>
                 </button>
-                <CartDropdown isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={dummyCart} onGoToCheckout={onGoToCheckout} />
+                <CartDropdown 
+                    isOpen={isCartOpen} 
+                    onClose={() => setIsCartOpen(false)} 
+                    cartItems={cartItems} 
+                    onGoToCheckout={onGoToCheckout}
+                    onQuantityChange={(id, qty) => onUpdateCartQuantity(id, qty)}
+                    onRemoveItem={(id) => onRemoveFromCart(id)}
+                />
               </div>
               <div className="relative">
                 <button onClick={() => { setIsAccountOpen(prev => !prev); setIsCartOpen(false); }} className="p-2 text-maroon-800 hover:text-maroon-950 transition-colors">
                   <span className="sr-only">Account</span>
                   <AccountIcon />
                 </button>
-                <AccountDropdown isOpen={isAccountOpen} onClose={() => setIsAccountOpen(false)} onRegisterClick={() => { onOpenRegister(); setIsAccountOpen(false); }} onSignInClick={() => { onOpenSignIn(); setIsAccountOpen(false); }}/>
+                <AccountDropdown 
+                    isOpen={isAccountOpen} 
+                    onClose={() => setIsAccountOpen(false)} 
+                    user={user}
+                    onRegisterClick={() => { onOpenRegister(); setIsAccountOpen(false); }} 
+                    onSignInClick={() => { onOpenSignIn(); setIsAccountOpen(false); }}
+                    onSignOut={() => { onSignOut(); setIsAccountOpen(false); }}
+                />
               </div>
             </div>
           </div>

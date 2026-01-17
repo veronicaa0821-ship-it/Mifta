@@ -17,3 +17,15 @@ export interface Category {
   name: string;
   subcategories?: Category[];
 }
+
+export interface User {
+  name: string;
+  email: string;
+}
+
+export interface CartItem {
+  id: string; // A unique ID for the cart item, e.g., `${product.id}-${size}`
+  product: Product;
+  quantity: number;
+  size?: string;
+}

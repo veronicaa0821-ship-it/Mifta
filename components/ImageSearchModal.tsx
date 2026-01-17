@@ -1,7 +1,8 @@
 
 import React, { useState, useCallback, useRef } from 'react';
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import type { Product } from '../types';
+import { Type } from "@google/genai";
+
 
 const CloseIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -70,7 +71,6 @@ const ImageSearchModal: React.FC<ImageSearchModalProps> = ({ isOpen, onClose, pr
 
         try {
             const base64Data = await fileToBase64(imageFile);
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             
             const imagePart = {
                 inlineData: {
@@ -91,24 +91,34 @@ const ImageSearchModal: React.FC<ImageSearchModalProps> = ({ isOpen, onClose, pr
                 text: `Analyze the product in this image. Compare it to the following list of products and identify the top 3 most similar items based on appearance, product type, and potential use. Respond ONLY with a JSON object containing a single key 'productIds' which is an array of the matching product IDs (as numbers). If no relevant products are found, return an empty array. Product List: ${productListString}`
             };
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: { parts: [imagePart, textPart] },
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            productIds: {
-                                type: Type.ARRAY,
-                                items: { type: Type.INTEGER }
+            // Updated endpoint for Netlify functions
+            const response = await fetch('/.netlify/functions/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'gemini-3-flash-preview',
+                    contents: { parts: [imagePart, textPart] },
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                productIds: {
+                                    type: Type.ARRAY,
+                                    items: { type: Type.INTEGER }
+                                }
                             }
                         }
                     }
-                }
+                })
             });
+            
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
 
-            const responseText = response.text.trim();
+            const apiResponse = await response.json();
+            const responseText = apiResponse.candidates[0].content.parts[0].text.trim();
             const result = JSON.parse(responseText);
 
             if (result.productIds && result.productIds.length > 0) {
@@ -141,7 +151,7 @@ const ImageSearchModal: React.FC<ImageSearchModalProps> = ({ isOpen, onClose, pr
                                 <h3 className="text-xl font-serif font-bold leading-6 text-maroon-900" id="modal-title">
                                     Search by Image
                                 </h3>
-                                <button type="button" className="-m-2 p-2 text-maroon-500 hover:text-maroon-800" onClick={handleClose}>
+                                <button type="button" className="m-2 p-2 text-maroon-500 hover:text-maroon-800" onClick={handleClose}>
                                     <CloseIcon />
                                 </button>
                             </div>

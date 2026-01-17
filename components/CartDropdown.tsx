@@ -1,18 +1,14 @@
 
-import React, { useRef, useEffect, useState } from 'react';
-import type { Product } from '../types';
-
-interface CartItem {
-    product: Product;
-    quantity: number;
-    size?: string;
-}
+import React, { useRef, useEffect } from 'react';
+import type { CartItem } from '../types';
 
 interface CartDropdownProps {
     isOpen: boolean;
     onClose: () => void;
     cartItems: CartItem[];
     onGoToCheckout: () => void;
+    onQuantityChange: (cartItemId: string, newQuantity: number) => void;
+    onRemoveItem: (cartItemId: string) => void;
 }
 
 const CloseIcon = () => (
@@ -33,17 +29,8 @@ const MinusIcon = () => (
     </svg>
 );
 
-
-const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems: initialCartItems, onGoToCheckout }) => {
+const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems, onGoToCheckout, onQuantityChange, onRemoveItem }) => {
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const [cartItems, setCartItems] = useState(initialCartItems);
-
-    useEffect(() => {
-        // Reset local state when the dropdown is opened to reflect the parent's current state.
-        if (isOpen) {
-            setCartItems(initialCartItems);
-        }
-    }, [initialCartItems, isOpen]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -53,7 +40,6 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
         };
 
         if (isOpen) {
-            // Add event listener after a short delay to prevent it from closing immediately
             setTimeout(() => document.addEventListener('mousedown', handleClickOutside), 0);
         }
 
@@ -61,25 +47,6 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [isOpen, onClose]);
-
-    const handleQuantityChange = (productId: number, size: string | undefined, change: number) => {
-        setCartItems(currentItems =>
-            currentItems.map(item => {
-                if (item.product.id === productId && item.size === size) {
-                    const newQuantity = item.quantity + change;
-                    // Prevent quantity from going below 1
-                    return { ...item, quantity: Math.max(1, newQuantity) };
-                }
-                return item;
-            })
-        );
-    };
-
-    const handleRemoveItem = (productId: number, size: string | undefined) => {
-        setCartItems(currentItems =>
-            currentItems.filter(item => !(item.product.id === productId && item.size === size))
-        );
-    };
 
     const subtotal = cartItems.reduce((acc, item) => {
         const price = item.size && item.product.prices ? item.product.prices[item.size] : item.product.price;
@@ -114,8 +81,8 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
                     <div className="flow-root">
                         {cartItems.length > 0 ? (
                              <ul role="list" className="-my-4 divide-y divide-maroon-200 max-h-60 overflow-y-auto">
-                                {cartItems.map(({ product, quantity, size }) => (
-                                    <li key={product.id + (size || '')} className="flex py-4">
+                                {cartItems.map(({ id, product, quantity, size }) => (
+                                    <li key={id} className="flex py-4">
                                         <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-maroon-200">
                                             <img
                                                 src={product.imageUrl}
@@ -128,7 +95,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
                                             <div>
                                                 <div className="flex justify-between text-base font-medium text-maroon-900">
                                                     <h3>{product.name}</h3>
-                                                    <p className="ml-4">{( (size && product.prices?.[size] || product.price) * quantity).toFixed(2)}৳</p>
+                                                    <p className="ml-4">{((size && product.prices?.[size] || product.price) * quantity).toFixed(2)}৳</p>
                                                 </div>
                                                 {size && <p className="mt-1 text-sm text-maroon-500">{size}</p>}
                                             </div>
@@ -136,7 +103,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
                                                 <div className="flex items-center border border-maroon-200 rounded-md">
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleQuantityChange(product.id, size, -1)}
+                                                        onClick={() => onQuantityChange(id, quantity - 1)}
                                                         className="h-7 w-7 flex items-center justify-center text-maroon-700 hover:bg-maroon-100 rounded-l-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                         aria-label="Decrease quantity"
                                                         disabled={quantity <= 1}
@@ -148,7 +115,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleQuantityChange(product.id, size, 1)}
+                                                        onClick={() => onQuantityChange(id, quantity + 1)}
                                                         className="h-7 w-7 flex items-center justify-center text-maroon-700 hover:bg-maroon-100 rounded-r-md transition-colors"
                                                         aria-label="Increase quantity"
                                                     >
@@ -156,7 +123,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
                                                     </button>
                                                 </div>
                                                 <div className="flex">
-                                                    <button type="button" className="font-medium text-maroon-700 hover:text-maroon-900" onClick={() => handleRemoveItem(product.id, size)}>
+                                                    <button type="button" className="font-medium text-maroon-700 hover:text-maroon-900" onClick={() => onRemoveItem(id)}>
                                                         Remove
                                                     </button>
                                                 </div>
@@ -181,7 +148,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, cartItems:
                     <p className="mt-0.5 text-sm text-maroon-600">Shipping and taxes calculated at checkout.</p>
                     <div className="mt-6">
                         <button
-                            onClick={onGoToCheckout}
+                            onClick={() => { onClose(); onGoToCheckout(); }}
                             className="flex w-full items-center justify-center rounded-md border border-transparent bg-maroon-800 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-maroon-900 transition-colors"
                         >
                             Checkout

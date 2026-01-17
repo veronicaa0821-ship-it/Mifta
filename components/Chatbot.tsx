@@ -1,6 +1,5 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import type { Product } from '../types';
 
 const ChatIcon = () => (
@@ -30,12 +29,14 @@ interface ChatbotProps {
     products: Product[];
 }
 
+// Keep track of chat history
+let chatHistory: any[] = [];
+
 const Chatbot: React.FC<ChatbotProps> = ({ products }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const chatRef = useRef<Chat | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const productInfo = JSON.stringify(products.map(p => ({
@@ -46,50 +47,60 @@ const Chatbot: React.FC<ChatbotProps> = ({ products }) => {
         price: p.price,
         description: p.description
     })));
+    
+    const systemInstruction = `You are Zephyra, a friendly and expert AI shopping assistant for a luxury beauty brand. Your goal is to help users discover the perfect skincare and haircare products. You are knowledgeable about all the products listed below. Use this information to answer questions, provide recommendations, and help users find what they're looking for. Keep your responses helpful, elegant, and concise, in line with the Zephyra brand. Here are the available products in JSON format: ${productInfo}`;
 
     useEffect(() => {
-        if (isOpen && !chatRef.current) {
-            const ai = new GoogleGenAI({ apiKey: AIzaSyApq-sbVCM8S3NKusTQ90L2ycLA_0O8JLw });
-            chatRef.current = ai.chats.create({
-                model: 'gemini-3-flash-preview',
-                config: {
-                    systemInstruction: `You are Zephyra, a friendly and expert AI shopping assistant for a luxury beauty brand. Your goal is to help users discover the perfect skincare and haircare products. You are knowledgeable about all the products listed below. Use this information to answer questions, provide recommendations, and help users find what they're looking for. Keep your responses helpful, elegant, and concise, in line with the Zephyra brand. Here are the available products in JSON format: ${productInfo}`,
-                },
-            });
+        if (isOpen && messages.length === 0) {
             setMessages([{ role: 'model', text: 'Hello! I am Zephyra, your personal beauty assistant. How can I help you today?' }]);
+            chatHistory = []; // Reset history when opening
         }
-    }, [isOpen, productInfo]);
+    }, [isOpen]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim() || !chatRef.current) return;
+        if (!input.trim()) return;
         const userInput = input;
         setInput('');
-        setMessages(prev => [...prev, { role: 'user', text: userInput }]);
+        
+        const newMessages: Message[] = [...messages, { role: 'user', text: userInput }];
+        setMessages(newMessages);
         setIsLoading(true);
 
+        // Add user message to history
+        chatHistory.push({ role: 'user', parts: [{ text: userInput }] });
+
         try {
-            const result = await chatRef.current.sendMessageStream({ message: userInput });
-            let text = '';
-            for await (const chunk of result) {
-                const c = chunk as GenerateContentResponse;
-                text += c.text;
-                setMessages(prev => {
-                    const lastMessage = prev[prev.length - 1];
-                    if (lastMessage && lastMessage.role === 'model') {
-                        const newMessages = [...prev];
-                        newMessages[newMessages.length - 1] = { ...lastMessage, text };
-                        return newMessages;
-                    } else {
-                        return [...prev, { role: 'model', text }];
-                    }
-                });
+            // Updated endpoint for Netlify functions
+            const response = await fetch('/.netlify/functions/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'gemini-3-flash-preview',
+                    contents: [...chatHistory], // Send the whole history
+                    config: {
+                      systemInstruction: systemInstruction,
+                    },
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
             }
+
+            const result = await response.json();
+            const modelResponse = result.candidates[0].content.parts[0].text;
+            
+            // Add model response to history
+            chatHistory.push({ role: 'model', parts: [{ text: modelResponse }] });
+
+            setMessages(prev => [...prev, { role: 'model', text: modelResponse }]);
+
         } catch (error) {
-            console.error('Gemini API error:', error);
+            console.error('Gemini proxy error:', error);
             setMessages(prev => [...prev, { role: 'model', text: 'I seem to be having trouble connecting. Please try again in a moment.' }]);
         } finally {
             setIsLoading(false);

@@ -6,6 +6,7 @@ interface ProductDetailProps {
   product: Product;
   onBack: () => void;
   onGoToCheckout: () => void;
+  onAddToCart: (product: Product, quantity: number, size?: string) => void;
 }
 
 const ArrowLeftIcon = () => (
@@ -26,12 +27,13 @@ const MinusIcon = () => (
     </svg>
 );
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCheckout }) => {
-  const [selectedSize, setSelectedSize] = useState(product.sizes ? product.sizes[0] : null);
+const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCheckout, onAddToCart }) => {
+  const [selectedSize, setSelectedSize] = useState(product.sizes ? product.sizes[0] : undefined);
   const [displayImages, setDisplayImages] = useState(product.images || [product.imageUrl]);
   const [currentPrice, setCurrentPrice] = useState(product.price);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [isAdded, setIsAdded] = useState(false);
 
   // Refs for swipe interaction
   const isDraggingRef = useRef(false);
@@ -44,7 +46,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
   }, []);
 
   useEffect(() => {
-    // Update price based on selected size
     if (product.prices && selectedSize && product.prices[selectedSize]) {
       setCurrentPrice(product.prices[selectedSize]);
     } else {
@@ -52,7 +53,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
     }
 
     const allImages = product.images || [product.imageUrl];
-    // Special logic for Glycolic Gloss Shampoo (ID 13)
     if (product.id === 13 && allImages.length === 5) {
       const image440ml = allImages[0];
       const lifestyleImages = allImages.slice(1, 4);
@@ -60,17 +60,23 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
 
       if (selectedSize === '200ml') {
         setDisplayImages([image200ml, ...lifestyleImages]);
-      } else { // 440ml
+      } else { 
         setDisplayImages([image440ml, ...lifestyleImages]);
       }
     } else {
       setDisplayImages(allImages);
     }
-    setActiveImageIndex(0); // Reset to first image on size change
+    setActiveImageIndex(0);
   }, [selectedSize, product]);
   
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => Math.max(1, prev + amount));
+  };
+
+  const handleAddToCartClick = () => {
+    onAddToCart(product, quantity, selectedSize);
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 2000);
   };
 
   const handleNextImage = () => {
@@ -88,7 +94,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
   const handleInteractionStart = (e: React.MouseEvent | React.TouchEvent) => {
     isDraggingRef.current = true;
     dragStartRef.current = getClientX(e);
-    // Disable transition for instant feedback
     if (containerRef.current) {
         containerRef.current.style.transition = 'none';
     }
@@ -105,21 +110,19 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     
-    // Re-enable transition for smooth snapping
     if (containerRef.current) {
         containerRef.current.style.transition = 'transform 0.3s ease-out';
     }
 
-    const SWIPE_THRESHOLD = 50; // Min pixels to be considered a swipe
+    const SWIPE_THRESHOLD = 50;
     if (dragOffset < -SWIPE_THRESHOLD) {
       handleNextImage();
     } else if (dragOffset > SWIPE_THRESHOLD) {
       handlePrevImage();
     }
     
-    setDragOffset(0); // Reset offset to snap back or to the new image
+    setDragOffset(0);
   };
-
 
   return (
     <div className="bg-white min-h-screen">
@@ -129,9 +132,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
           Back to products
         </button>
         <div className="grid grid-cols-1 md:grid-cols-2 md:gap-12">
-          {/* Image Gallery */}
           <div className="w-full md:sticky md:top-24 self-start">
-             {/* Main Image Display */}
              <div 
                 className="relative aspect-square w-full overflow-hidden rounded-lg border border-maroon-100 bg-white shadow-sm cursor-grab active:cursor-grabbing"
                 onMouseDown={handleInteractionStart}
@@ -164,7 +165,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
             </div>
           </div>
 
-          {/* Product Info */}
           <div className="w-full">
             <div className="py-8 md:py-0">
                 <h1 className="font-serif text-3xl sm:text-4xl font-bold text-maroon-900">{product.name}</h1>
@@ -223,9 +223,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, onGoToCh
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
                   <button
                     type="button"
-                    className="flex-1 rounded-md border border-transparent bg-maroon-800 py-3 px-8 text-base font-semibold text-white shadow-sm hover:bg-maroon-900 focus:outline-none focus:ring-2 focus:ring-maroon-700 focus:ring-offset-2 transition-colors"
+                    onClick={handleAddToCartClick}
+                    className={`flex-1 rounded-md border border-transparent py-3 px-8 text-base font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${isAdded ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' : 'bg-maroon-800 hover:bg-maroon-900 focus:ring-maroon-700'}`}
                   >
-                    Add to cart
+                    {isAdded ? 'Added!' : 'Add to cart'}
                   </button>
                   <button
                     type="button"

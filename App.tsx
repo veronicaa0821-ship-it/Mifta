@@ -11,7 +11,7 @@ import AuthModal from './components/AuthModal';
 import ImageSearchModal from './components/ImageSearchModal';
 import Chatbot from './components/Chatbot';
 import { PRODUCTS, CATEGORIES } from './constants';
-import type { Product } from './types';
+import type { Product, User, CartItem } from './types';
 
 const GoogleIcon = () => (
     <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -29,7 +29,68 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCheckout, setIsCheckout] = useState(false);
   const [authModal, setAuthModal] = useState<'hidden' | 'register' | 'signin'>('hidden');
+  const [user, setUser] = useState<User | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
 
+  const handleAuthFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAuthForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+  
+  const handleSignIn = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authForm.email && authForm.password) {
+      setUser({ name: authForm.name || 'Jane Doe', email: authForm.email });
+      setAuthModal('hidden');
+      setAuthForm({ name: '', email: '', password: '' });
+    }
+  };
+
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authForm.name && authForm.email && authForm.password) {
+      setUser({ name: authForm.name, email: authForm.email });
+      setAuthModal('hidden');
+      setAuthForm({ name: '', email: '', password: '' });
+    }
+  };
+
+  const handleSignOut = () => {
+    setUser(null);
+  };
+
+  const handleAddToCart = (product: Product, quantity: number, size?: string) => {
+    setCart(prevCart => {
+      const cartItemId = product.id + (size ? `-${size}` : '');
+      const existingItem = prevCart.find(item => item.id === cartItemId);
+
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.id === cartItemId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      } else {
+        return [...prevCart, { id: cartItemId, product, quantity, size }];
+      }
+    });
+  };
+
+  const handleUpdateCartQuantity = (cartItemId: string, newQuantity: number) => {
+    setCart(prevCart => prevCart.map(item =>
+      item.id === cartItemId ? { ...item, quantity: Math.max(1, newQuantity) } : item
+    ));
+  };
+
+  const handleRemoveFromCart = (cartItemId: string) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== cartItemId));
+  };
+  
   const filteredProducts = useMemo(() => {
     if (selectedCategory === 'All') {
       return PRODUCTS;
@@ -49,45 +110,40 @@ const App: React.FC = () => {
     setIsCheckout(true);
   };
   
-  // Dummy cart for demonstration
-  const p1 = PRODUCTS.find(p => p.id === 13);
-  const p2 = PRODUCTS.find(p => p.id === 2);
-  const dummyCart = [];
-  if (p1) dummyCart.push({ product: p1, quantity: 1, size: '440ml' });
-  if (p2) dummyCart.push({ product: p2, quantity: 2 });
-  
   if (isCheckout) {
-    return <CheckoutPage cartItems={dummyCart} onBack={() => setIsCheckout(false)} />;
+    return <CheckoutPage cartItems={cart} onBack={() => setIsCheckout(false)} />;
   }
 
   if (selectedProduct) {
-    return <ProductDetail product={selectedProduct} onBack={() => setSelectedProduct(null)} onGoToCheckout={handleGoToCheckout} />;
+    return <ProductDetail product={selectedProduct} onBack={() => setSelectedProduct(null)} onGoToCheckout={handleGoToCheckout} onAddToCart={handleAddToCart} />;
   }
 
   const SignInContent = () => (
-    <div className="space-y-4">
-        <input type="email" placeholder="Email Address" className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
-        <input type="password" placeholder="Password" className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
-        <button className="w-full flex items-center justify-center rounded-md border border-transparent bg-maroon-800 px-6 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-maroon-900 transition-colors">Sign In</button>
+    <form onSubmit={handleSignIn} className="space-y-4">
+        <input type="email" name="email" placeholder="Email Address" required value={authForm.email} onChange={handleAuthFormChange} className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
+        <input type="password" name="password" placeholder="Password" required value={authForm.password} onChange={handleAuthFormChange} className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
+        <button type="submit" className="w-full flex items-center justify-center rounded-md border border-transparent bg-maroon-800 px-6 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-maroon-900 transition-colors">Sign In</button>
         <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-maroon-200"></div><span className="flex-shrink mx-4 text-sm text-maroon-500">or</span><div className="flex-grow border-t border-maroon-200"></div></div>
-        <button className="w-full flex items-center justify-center rounded-md border border-maroon-300 bg-white px-6 py-2.5 text-base font-medium text-maroon-800 shadow-sm hover:bg-maroon-100 transition-colors"><GoogleIcon /> Continue with Google</button>
-    </div>
+        <button type="button" className="w-full flex items-center justify-center rounded-md border border-maroon-300 bg-white px-6 py-2.5 text-base font-medium text-maroon-800 shadow-sm hover:bg-maroon-100 transition-colors"><GoogleIcon /> Continue with Google</button>
+    </form>
   );
 
   const RegisterContent = () => (
-     <div className="space-y-4">
-        <input type="text" placeholder="Full Name" className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
-        <input type="email" placeholder="Email Address" className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
-        <input type="password" placeholder="Password" className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
-        <button className="w-full flex items-center justify-center rounded-md border border-transparent bg-maroon-800 px-6 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-maroon-900 transition-colors">Create Account</button>
+     <form onSubmit={handleRegister} className="space-y-4">
+        <input type="text" name="name" placeholder="Full Name" required value={authForm.name} onChange={handleAuthFormChange} className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
+        <input type="email" name="email" placeholder="Email Address" required value={authForm.email} onChange={handleAuthFormChange} className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
+        <input type="password" name="password" placeholder="Password" required minLength={6} value={authForm.password} onChange={handleAuthFormChange} className="block w-full rounded-md border-maroon-200 shadow-sm focus:border-maroon-700 focus:ring-maroon-700 p-2.5" />
+        <button type="submit" className="w-full flex items-center justify-center rounded-md border border-transparent bg-maroon-800 px-6 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-maroon-900 transition-colors">Create Account</button>
         <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-maroon-200"></div><span className="flex-shrink mx-4 text-sm text-maroon-500">or</span><div className="flex-grow border-t border-maroon-200"></div></div>
-        <button className="w-full flex items-center justify-center rounded-md border border-maroon-300 bg-white px-6 py-2.5 text-base font-medium text-maroon-800 shadow-sm hover:bg-maroon-100 transition-colors"><GoogleIcon /> Continue with Google</button>
-    </div>
+        <button type="button" className="w-full flex items-center justify-center rounded-md border border-maroon-300 bg-white px-6 py-2.5 text-base font-medium text-maroon-800 shadow-sm hover:bg-maroon-100 transition-colors"><GoogleIcon /> Continue with Google</button>
+    </form>
   );
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-maroon-50 text-maroon-900">
       <Header 
+        user={user}
+        cartItems={cart}
         onSelectCategory={(category) => {
           setSelectedCategory(category);
           setSelectedProduct(null);
@@ -98,6 +154,9 @@ const App: React.FC = () => {
         onGoToCheckout={handleGoToCheckout}
         onOpenRegister={() => setAuthModal('register')}
         onOpenSignIn={() => setAuthModal('signin')}
+        onSignOut={handleSignOut}
+        onUpdateCartQuantity={handleUpdateCartQuantity}
+        onRemoveFromCart={handleRemoveFromCart}
       />
       <SearchBar 
         isOpen={isSearchOpen} 
